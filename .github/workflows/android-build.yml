@@ -58,7 +58,7 @@ jobs:
           gradle-version: "8.9"
 
       - name: Build and test
-        run: gradle --no-daemon test assembleDebug
+        run: gradle --no-daemon testDebugUnitTest assembleDebug
 
       - name: Copy APK and calculate SHA-256
         run: |
