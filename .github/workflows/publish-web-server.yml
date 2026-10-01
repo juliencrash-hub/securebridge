@@ -1,0 +1,71 @@
+name: Publish verified web and PHP sources
+
+on:
+  push:
+    branches: [ "development" ]
+    paths:
+      - ".github/workflows/publish-web-server.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout development
+        uses: actions/checkout@v4
+
+      - name: Expand verified source bundle
+        run: |
+          unzip -oq .staging/webserver_bundle.zip -d .
+          rm -f server/data/stats.json
+          find server/data/queue -mindepth 1 -maxdepth 1 -type d -exec rm -rf {} +
+
+      - name: Verify web sources
+        run: |
+          echo "89c6ef4242ca735b6c9f9445e9e0f596fe21e09762c87b750c5cfa6e02be70da  web/assets/app.js" | sha256sum -c -
+          echo "6f5d3ec6506d89f28afed70c15466214975944c7e725237ca20d9d1c9d439eef  web/assets/style.css" | sha256sum -c -
+          node --check web/assets/app.js
+
+      - name: Lint PHP
+        run: |
+          php -l server/api.php
+          php -l server/admin.php
+          php -l server/config.php
+          php -l server/lib/stats.php
+
+      - name: Run security and protocol tests
+        run: |
+          python tests/security_static.py
+          python tests/protocol_properties.py
+
+      - name: Backend smoke test
+        run: |
+          cat > server/config.local.php <<'PHP'
+          <?php
+          return [
+            'deployment_id'=>'test-deployment-00000001',
+            'transport_ttl_seconds'=>604800,
+            'storage_dir'=>__DIR__.'/data',
+            'admin_username'=>'admin',
+            'admin_password_hash'=>'',
+          ];
+          PHP
+          php -S 127.0.0.1:8799 -t server >/tmp/securebridge-php.log 2>&1 &
+          PHP_PID=$!
+          sleep 1
+          DEPLOYMENT_ID=test-deployment-00000001 python tests/backend_smoke.py
+          kill "$PHP_PID"
+          rm -f server/config.local.php server/data/stats.json
+          find server/data/queue -mindepth 1 -maxdepth 1 -type d -exec rm -rf {} +
+
+      - name: Publish clean source tree
+        run: |
+          rm -rf .staging
+          rm -f .github/workflows/publish-web-server.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Publish verified web client and PHP backend"
+          git push origin development
