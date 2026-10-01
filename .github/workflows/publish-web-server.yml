@@ -16,9 +16,12 @@ jobs:
       - name: Checkout development
         uses: actions/checkout@v4
 
-      - name: Expand verified source bundle
+      - name: Reconstruct and expand verified source bundle
         run: |
-          unzip -oq .staging/webserver_bundle.zip -d .
+          cat             .staging/b64/part00             .staging/b64/p01_00 .staging/b64/p01_01 .staging/b64/p01_02 .staging/b64/p01_03             .staging/b64/p02_00 .staging/b64/p02_01 .staging/b64/p02_02 .staging/b64/p02_03             .staging/b64/p03_00 .staging/b64/p03_01 .staging/b64/p03_02 .staging/b64/p03_03             > /tmp/webserver_bundle.b64
+          base64 --decode /tmp/webserver_bundle.b64 > /tmp/webserver_bundle.zip
+          echo "01df1fc95a4aa61db4b475711ef1882948a28dc3b6f00abd9334190129699772  /tmp/webserver_bundle.zip" | sha256sum -c -
+          unzip -oq /tmp/webserver_bundle.zip -d .
           rm -f server/data/stats.json
           find server/data/queue -mindepth 1 -maxdepth 1 -type d -exec rm -rf {} +
 
