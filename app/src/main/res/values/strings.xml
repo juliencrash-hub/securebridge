@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Stockage local</string>
+    <string name="hce_service_description">Échange NFC local</string>
+    <string name="hce_aid_description">Échange local de clés</string>
+</resources>
