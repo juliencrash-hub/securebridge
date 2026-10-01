@@ -16,6 +16,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Rebuild source archive
+        run: |
+          cat source_b64/part* > SecureBridge-android-v0.5.0-alpha.zip.b64
+          base64 --decode SecureBridge-android-v0.5.0-alpha.zip.b64 > SecureBridge-android-v0.5.0-alpha.zip
+          unzip -q SecureBridge-android-v0.5.0-alpha.zip
+          test -f securebridge_android/settings.gradle
+
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
@@ -34,11 +41,12 @@ jobs:
           gradle-version: "8.9"
 
       - name: Build debug APK
+        working-directory: securebridge_android
         run: gradle --no-daemon assembleDebug
 
       - name: Copy APK and calculate SHA-256
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk SecureBridge-v0.5.0-alpha-debug.apk
+          cp securebridge_android/app/build/outputs/apk/debug/app-debug.apk SecureBridge-v0.5.0-alpha-debug.apk
           sha256sum SecureBridge-v0.5.0-alpha-debug.apk | tee SecureBridge-v0.5.0-alpha-debug.apk.sha256
 
       - name: Upload APK
