@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -14,32 +14,30 @@ jobs:
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      SECUREBRIDGE_ALLOWED_ORIGIN: ${{ secrets.SECUREBRIDGE_ALLOWED_ORIGIN }}
+      SECUREBRIDGE_ALLOWED_PATH: ${{ secrets.SECUREBRIDGE_ALLOWED_PATH }}
+      SECUREBRIDGE_API_URL: ${{ secrets.SECUREBRIDGE_API_URL }}
+      SECUREBRIDGE_DEPLOYMENT_ID: ${{ secrets.SECUREBRIDGE_DEPLOYMENT_ID }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare Android source
+      - name: Report deployment mode
         run: |
-          if [ -f settings.gradle ]; then
-            echo "Android source tree already present at repository root."
+          configured=0
+          for name in SECUREBRIDGE_ALLOWED_ORIGIN SECUREBRIDGE_ALLOWED_PATH SECUREBRIDGE_API_URL SECUREBRIDGE_DEPLOYMENT_ID
+          do
+            if [ -n "${!name}" ]; then configured=$((configured + 1)); fi
+          done
+
+          if [ "$configured" -eq 0 ]; then
+            echo "Building generic locked debug APK."
+          elif [ "$configured" -eq 4 ]; then
+            echo "Building personalized debug APK."
           else
-            cat source_b64/part* > SecureBridge-android-v0.5.0-alpha.zip.b64
-            base64 --decode SecureBridge-android-v0.5.0-alpha.zip.b64 > SecureBridge-android-v0.5.0-alpha.zip
-            unzip -q SecureBridge-android-v0.5.0-alpha.zip
-            test -f securebridge_android/settings.gradle
-
-            cp -a securebridge_android/. .
-            rm -rf securebridge_android source_b64
-            rm -f SecureBridge-android-v0.5.0-alpha.zip SecureBridge-android-v0.5.0-alpha.zip.b64
-
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add -A
-            if ! git diff --cached --quiet; then
-              git commit -m "Publish SecureBridge Android source tree"
-              git push
-            fi
+            echo "Incomplete deployment configuration." >&2
+            exit 1
           fi
 
       - name: Set up Java 17
@@ -59,19 +57,19 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Build debug APK
-        run: gradle --no-daemon assembleDebug
+      - name: Build and test
+        run: gradle --no-daemon test assembleDebug
 
       - name: Copy APK and calculate SHA-256
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk SecureBridge-v0.5.0-alpha-debug.apk
-          sha256sum SecureBridge-v0.5.0-alpha-debug.apk | tee SecureBridge-v0.5.0-alpha-debug.apk.sha256
+          cp app/build/outputs/apk/debug/app-debug.apk SecureBridge-v0.5.1-alpha-debug.apk
+          sha256sum SecureBridge-v0.5.1-alpha-debug.apk | tee SecureBridge-v0.5.1-alpha-debug.apk.sha256
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: SecureBridge-v0.5.0-alpha-debug-apk
+          name: SecureBridge-v0.5.1-alpha-debug-apk
           path: |
-            SecureBridge-v0.5.0-alpha-debug.apk
-            SecureBridge-v0.5.0-alpha-debug.apk.sha256
+            SecureBridge-v0.5.1-alpha-debug.apk
+            SecureBridge-v0.5.1-alpha-debug.apk.sha256
           if-no-files-found: error
