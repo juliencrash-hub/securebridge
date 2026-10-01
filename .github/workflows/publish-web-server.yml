@@ -16,6 +16,10 @@ jobs:
       - name: Checkout development
         uses: actions/checkout@v4
 
+      - name: Diagnose source chunks
+        run: |
+          sha256sum             .staging/b64/p00_00 .staging/b64/p00_01 .staging/b64/p00_02 .staging/b64/p00_03             .staging/b64/p01_00 .staging/b64/p01_01 .staging/b64/p01_02 .staging/b64/p01_03             .staging/b64/p02_00 .staging/b64/p02_01 .staging/b64/p02_02 .staging/b64/p02_03             .staging/b64/p03_00 .staging/b64/p03_01             .staging/b64/p03_02_0 .staging/b64/p03_02_1 .staging/b64/p03_02_2             .staging/b64/p03_03
+
       - name: Reconstruct and expand verified source bundle
         run: |
           cat             .staging/b64/p00_00 .staging/b64/p00_01 .staging/b64/p00_02 .staging/b64/p00_03             .staging/b64/p01_00 .staging/b64/p01_01 .staging/b64/p01_02 .staging/b64/p01_03             .staging/b64/p02_00 .staging/b64/p02_01 .staging/b64/p02_02 .staging/b64/p02_03             .staging/b64/p03_00 .staging/b64/p03_01             .staging/b64/p03_02_0 .staging/b64/p03_02_1 .staging/b64/p03_02_2             .staging/b64/p03_03             > /tmp/webserver_bundle.b64
