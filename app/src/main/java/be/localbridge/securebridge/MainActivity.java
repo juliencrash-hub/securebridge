@@ -90,7 +90,8 @@ public class MainActivity extends Activity implements NfcAdapter.ReaderCallback 
     }
 
     private void bindOrigin(String candidate) {
-        String normalized = normalizeHttpsBase(candidate);
+        if (!SecureBridgeConfig.isConfigured()) { showNotBoundAndFinish(); return; }
+        String normalized = SecureBridgeConfig.isAllowedWebCandidate(candidate) ? SecureBridgeConfig.webBaseUrl() : null;
         if (normalized == null) {
             new AlertDialog.Builder(this).setTitle("Adresse invalide").setMessage("SecureBridge accepte uniquement une adresse HTTPS valide.").setPositiveButton("Fermer", (d,w)->finish()).show();
             return;
@@ -116,8 +117,9 @@ public class MainActivity extends Activity implements NfcAdapter.ReaderCallback 
     }
 
     private boolean isAllowed(Uri uri) {
-        if (boundOrigin == null || uri == null) return false;
-        return uri.toString().startsWith(boundOrigin) && "https".equalsIgnoreCase(uri.getScheme());
+        return boundOrigin != null
+                && SecureBridgeConfig.webBaseUrl().equals(boundOrigin)
+                && SecureBridgeConfig.isAllowedWebUri(uri);
     }
 
     private void openSecureWebView(String base) {
