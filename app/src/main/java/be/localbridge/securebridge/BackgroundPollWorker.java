@@ -38,9 +38,19 @@ public class BackgroundPollWorker extends Worker {
         try {
             SecureStore store = new SecureStore(getApplicationContext());
             JSONObject state = new JSONObject(store.loadWakeJson());
+            if (!SecureBridgeConfig.isConfigured()
+                    || !SecureBridgeConfig.deploymentId().equals(state.optString("deploymentId", ""))) {
+                store.clearWake();
+                return Result.success();
+            }
+
             String apiUrl = state.optString("apiUrl", "");
             JSONArray channels = state.optJSONArray("channels");
-            if (!apiUrl.startsWith("https://") || channels == null || channels.length() == 0) return Result.success();
+            if (!SecureBridgeConfig.isAllowedApiUrl(apiUrl)) {
+                store.clearWake();
+                return Result.success();
+            }
+            if (channels == null || channels.length() == 0) return Result.success();
 
             int count = channels.length();
             int cursor = Math.floorMod(state.optInt("cursor", 0), count);
@@ -97,8 +107,9 @@ public class BackgroundPollWorker extends Worker {
     private int peek(String apiUrl, List<String> slots) throws Exception {
         JSONObject req = new JSONObject(); req.put("action", "peek_many");
         JSONArray a = new JSONArray(); for (String s : slots) a.put(s); req.put("slots", a);
+        if (!SecureBridgeConfig.isAllowedApiUrl(apiUrl)) throw new IllegalStateException("API deployment mismatch");
         HttpURLConnection con = (HttpURLConnection) new URL(apiUrl).openConnection();
-        con.setRequestMethod("POST"); con.setConnectTimeout(7000); con.setReadTimeout(10000);
+        con.setRequestMethod("POST"); con.setConnectTimeout(7000); con.setReadTimeout(10000); con.setInstanceFollowRedirects(false);
         con.setDoOutput(true); con.setUseCaches(false);
         con.setRequestProperty("Content-Type", "application/json");
         con.setRequestProperty("Cache-Control", "no-store");
