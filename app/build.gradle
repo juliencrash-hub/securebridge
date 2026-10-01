@@ -1,6 +1,36 @@
+import java.util.Properties
+
 plugins {
     id 'com.android.application'
 }
+
+def deployment = new Properties()
+def deploymentFile = rootProject.file('deployment.properties')
+if (deploymentFile.exists()) {
+    deploymentFile.withInputStream { deployment.load(it) }
+}
+
+def configValue = { String key ->
+    String envValue = System.getenv(key)
+    if (envValue != null && !envValue.trim().isEmpty()) return envValue.trim()
+    return deployment.getProperty(key, '').trim()
+}
+
+def javaString = { String value ->
+    '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
+}
+
+def allowedOrigin = configValue('SECUREBRIDGE_ALLOWED_ORIGIN')
+def allowedPath = configValue('SECUREBRIDGE_ALLOWED_PATH')
+def apiUrl = configValue('SECUREBRIDGE_API_URL')
+def deploymentId = configValue('SECUREBRIDGE_DEPLOYMENT_ID')
+
+def deploymentValues = [allowedOrigin, allowedPath, apiUrl, deploymentId]
+def configuredValues = deploymentValues.count { !it.isEmpty() }
+if (configuredValues != 0 && configuredValues != deploymentValues.size()) {
+    throw new GradleException('SecureBridge deployment configuration is incomplete. Define all four SECUREBRIDGE_* values or none of them.')
+}
+def deploymentConfigured = configuredValues == deploymentValues.size()
 
 android {
     namespace 'be.localbridge.securebridge'
@@ -10,9 +40,17 @@ android {
         applicationId 'be.localbridge.securebridge'
         minSdk 26
         targetSdk 35
-        versionCode 5
-        versionName '0.5.0-alpha'
+        versionCode 6
+        versionName '0.5.1-alpha'
+
+        buildConfigField 'boolean', 'SECUREBRIDGE_CONFIGURED', deploymentConfigured.toString()
+        buildConfigField 'String', 'SECUREBRIDGE_ALLOWED_ORIGIN', javaString(allowedOrigin)
+        buildConfigField 'String', 'SECUREBRIDGE_ALLOWED_PATH', javaString(allowedPath)
+        buildConfigField 'String', 'SECUREBRIDGE_API_URL', javaString(apiUrl)
+        buildConfigField 'String', 'SECUREBRIDGE_DEPLOYMENT_ID', javaString(deploymentId)
     }
+
+    buildFeatures { buildConfig = true }
 
     buildTypes {
         release {
@@ -26,6 +64,16 @@ android {
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+afterEvaluate {
+    tasks.named('preReleaseBuild').configure {
+        doFirst {
+            if (!deploymentConfigured) {
+                throw new GradleException('Release build refused: deployment configuration is missing.')
+            }
+        }
     }
 }
 
