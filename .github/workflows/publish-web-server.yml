@@ -24,7 +24,7 @@ jobs:
         run: |
           cat             .staging/b64/p00_00 .staging/b64/p00_01 .staging/b64/p00_02 .staging/b64/p00_03             .staging/b64/p01_00 .staging/b64/p01_01 .staging/b64/p01_02 .staging/b64/p01_03             .staging/b64/p02_00 .staging/b64/p02_01 .staging/b64/p02_02 .staging/b64/p02_03             .staging/b64/p03_00 .staging/b64/p03_01             .staging/b64/p03_02_0 .staging/b64/p03_02_1 .staging/b64/p03_02_2             .staging/b64/p03_03             > /tmp/webserver_bundle.b64
           base64 --decode /tmp/webserver_bundle.b64 > /tmp/webserver_bundle.zip
-          echo "01df1fc95a4aa61db4b475711ef1882948a28dc3b6f00abd9334190129699772  /tmp/webserver_bundle.zip" | sha256sum -c -
+          echo "e4e0dd680d026c7ee511ac6924a0ac78cf53b69ebec31032e5129e2b7dd577b6  /tmp/webserver_bundle.zip" | sha256sum -c -
           unzip -oq /tmp/webserver_bundle.zip -d .
           rm -f server/data/stats.json
           find server/data/queue -mindepth 1 -maxdepth 1 -type d -exec rm -rf {} +
