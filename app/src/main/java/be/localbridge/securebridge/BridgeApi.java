@@ -8,8 +8,9 @@ final class BridgeApi {
     private final SecureStore store;
     BridgeApi(MainActivity activity, SecureStore store){this.activity=activity;this.store=store;}
 
-    @JavascriptInterface public String version(){return "0.5.0-alpha";}
+    @JavascriptInterface public String version(){return "0.5.1-alpha";}
     @JavascriptInterface public boolean isNativeVault(){return true;}
+    @JavascriptInterface public String deploymentId(){return SecureBridgeConfig.deploymentId();}
     @JavascriptInterface public String loadKvJson(){try{return store.loadJson();}catch(Exception e){return "{}";}}
     @JavascriptInterface public boolean saveKvJson(String json){try{store.saveJson(json);return true;}catch(Exception e){return false;}}
     @JavascriptInterface public boolean clearKv(){try{store.clearBundle();return true;}catch(Exception e){return false;}}
@@ -32,5 +33,5 @@ final class BridgeApi {
     @JavascriptInterface public String ed25519Sign(String privateB64,String messageB64){try{return CryptoSuite.ed25519Sign(privateB64,messageB64);}catch(Exception e){return "";}}
     @JavascriptInterface public boolean ed25519Verify(String publicB64,String messageB64,String signatureB64){return CryptoSuite.ed25519Verify(publicB64,messageB64,signatureB64);}
     @JavascriptInterface public void closeSecureView(){activity.runOnUiThread(activity::finishAndRemoveTask);}
-    @JavascriptInterface public String statusJson(){try{JSONObject j=new JSONObject();j.put("version",version());j.put("native",true);j.put("bytes",store.storedBytes());j.put("hasBundle",store.hasBundle());j.put("backgroundPolling",true);return j.toString();}catch(Exception e){return "{\"native\":true}";}}
+    @JavascriptInterface public String statusJson(){try{JSONObject j=new JSONObject();j.put("version",version());j.put("native",true);j.put("configured",SecureBridgeConfig.isConfigured());j.put("deploymentId",SecureBridgeConfig.deploymentId());j.put("bytes",store.storedBytes());j.put("hasBundle",store.hasBundle());j.put("backgroundPolling",true);return j.toString();}catch(Exception e){return "{\"native\":true}";}}
 }
