@@ -1,62 +1,110 @@
 # SecureBridge
 
-SecureBridge est le composant Android natif du POC de messagerie privée.
+SecureBridge est un POC Android + Web + PHP de messagerie privée.
 
-> **État : v0.5.0-alpha — prototype de sécurité non audité.**
-> Ne pas considérer cette version comme équivalente à Signal ni comme prête pour des usages sensibles en production.
+> **État : v0.5.1-alpha — prototype de sécurité non audité.**
+> Cette version sert à valider l'architecture et les tests. Elle ne doit pas être présentée comme équivalente à Signal ni comme prête pour des usages sensibles en production.
 
-## Principes actuels
+## Branches
 
-- aucun Firebase / FCM ;
-- notifications locales via Android WorkManager ;
-- vérification de fond périodique, donc notifications potentiellement retardées par Android ;
-- stockage privé Android chiffré avec une clé Android Keystore ;
-- sauvegarde et transfert Android désactivés ;
-- pairing physique téléphone-à-téléphone par NFC/HCE ;
-- objet NFC personnel réservé au déverrouillage du coffre ;
-- Argon2id pour la dérivation de secrets humains ;
-- X25519 + Ed25519 ;
-- Double Ratchet expérimental avec rotation des chaînes de messages et de slots ;
-- anti-replay sur le pairing NFC et les messages ;
-- messages éphémères : 1 h, 24 h ou 7 jours ;
-- aucune icône launcher ; libellé Android neutre : **Stockage local**.
+- `main` : version stable du dépôt, compilée par GitHub Actions.
+- `development` : branche de travail. Les changements y sont testés avant d'être proposés à `main`.
 
-## Build automatique
+La branche de développement exécute automatiquement les tests JavaScript, PHP, protocole, backend et Android sans modifier `main`.
 
-Chaque modification de la branche `main` lance :
+## Arborescence
 
-`.github/workflows/android-build.yml`
-
-Le workflow utilise Java 17, Android SDK 35 et Gradle 8.9, compile `assembleDebug`, calcule le SHA-256 puis publie l'APK comme artifact GitHub Actions.
-
-APK attendu :
-
-`SecureBridge-v0.5.0-alpha-debug.apk`
-
-## Compilation locale
-
-Prérequis : JDK 17, Android SDK 35 et Gradle 8.9.
-
-```bash
-gradle --no-daemon assembleDebug
+```text
+app/                         application Android SecureBridge
+web/                         client web
+  assets/app.js              logique du coffre, contacts, ratchets, groupes
+  assets/style.css
+  config.example.js          modèle public de configuration
+server/                      backend PHP mutualisé
+  api.php                    PUT / PEEK_MANY / TAKE
+  admin.php                  statistiques agrégées
+  config.example.php         modèle public serveur
+tests/                       tests statiques, protocole et backend
+docs/                        architecture et déploiement
+.github/workflows/           builds et validations
 ```
 
-Sortie :
+## Code public / configuration privée
 
-`app/build/outputs/apk/debug/app-debug.apk`
+Aucune vraie adresse de production ni aucun secret ne doit être committé.
 
-## Permissions Android
+Android reçoit au build :
 
-Le manifeste demande uniquement les permissions nécessaires au POC :
+- `SECUREBRIDGE_ALLOWED_ORIGIN`
+- `SECUREBRIDGE_ALLOWED_PATH`
+- `SECUREBRIDGE_API_URL`
+- `SECUREBRIDGE_DEPLOYMENT_ID`
 
-- `INTERNET`
-- `NFC`
-- `POST_NOTIFICATIONS`
+Le site utilise `web/config.local.js` et le serveur `server/config.local.php`. Ces fichiers sont ignorés par Git.
 
-Il ne demande pas les contacts, SMS, microphone, caméra ou localisation.
+Sans configuration privée, l'APK debug reste volontairement **générique et verrouillé** : il compile, mais ne peut s'associer à aucun vrai site.
+
+## Client web
+
+Le client web ne constitue pas le coffre à lui seul. Le stockage sensible reste dans SecureBridge Android, protégé par le stockage privé de l'application et Android Keystore.
+
+Le client gère notamment :
+
+- création / ouverture du coffre ;
+- objet NFC personnel pour le déverrouillage ;
+- pairing physique téléphone-à-téléphone par NFC/HCE ;
+- contacts locaux ;
+- messages texte + emoji ;
+- messages standard, 1 h, 24 h et 7 jours ;
+- Double Ratchet expérimental et ratchet de slots ;
+- groupes v0.5 en fan-out sur les relations 1-à-1 existantes.
+
+## Backend PHP
+
+Compatible hébergement mutualisé : pas de Node, pas de daemon permanent et pas de SQL obligatoire.
+
+Le serveur manipule uniquement des slots opaques et des blobs chiffrés :
+
+- `put`
+- `peek_many`
+- `take`
+- TTL technique
+- statistiques globales agrégées
+
+Il ne possède pas les noms des contacts, le contenu en clair, les clés du coffre ou un annuaire d'utilisateurs.
+
+## Notifications
+
+Aucun Firebase / FCM / ntfy.
+
+Lorsque le coffre est ouvert, le site effectue du polling rapide. Lorsqu'il est fermé, Android WorkManager vérifie périodiquement des lots fixes de slots opaques et crée localement une notification générique.
+
+## Android
+
+- pas d'icône launcher ;
+- libellé neutre : **Stockage local** ;
+- sauvegarde/transfert désactivés ;
+- cleartext HTTP interdit ;
+- WebView liée au déploiement compilé ;
+- Android Keystore pour le stockage natif ;
+- permissions limitées à `INTERNET`, `NFC` et `POST_NOTIFICATIONS`.
+
+## Tests
+
+La branche `development` vérifie automatiquement :
+
+```text
+JavaScript syntax
+PHP lint
+garde-fous statiques Android/Web/PHP
+propriétés cryptographiques de référence
+PUT → PEEK → TAKE → suppression one-shot
+tests Android debug
+compilation APK Android
+```
 
 ## Avertissement cryptographique
 
-La v0.5 implémente un prototype de protocole ratchet afin de valider l'architecture. Même si elle utilise des primitives modernes, l'ensemble du protocole et son implémentation n'ont pas encore fait l'objet d'un audit cryptographique indépendant.
+Argon2id, X25519, Ed25519 et AES-GCM sont des primitives reconnues, mais le protocole ratchet et son intégration restent expérimentaux dans ce POC.
 
-Avant toute v1.0, il reste notamment à réaliser des tests sur plusieurs appareils physiques, une revue complète du protocole, des tests de sécurité supplémentaires et idéalement un audit externe.
+Avant une v1.0 : tests sur plusieurs téléphones physiques, revue protocolaire complète, davantage de tests adversariaux et idéalement audit indépendant.
