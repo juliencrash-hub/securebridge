@@ -105,7 +105,7 @@ public class BackgroundPollWorker extends Worker {
     }
 
     private int peek(String apiUrl, List<String> slots) throws Exception {
-        JSONObject req = new JSONObject(); req.put("action", "peek_many");
+        JSONObject req = new JSONObject(); req.put("deploymentId", SecureBridgeConfig.deploymentId()); req.put("action", "peek_many");
         JSONArray a = new JSONArray(); for (String s : slots) a.put(s); req.put("slots", a);
         if (!SecureBridgeConfig.isAllowedApiUrl(apiUrl)) throw new IllegalStateException("API deployment mismatch");
         HttpURLConnection con = (HttpURLConnection) new URL(apiUrl).openConnection();
