@@ -11,7 +11,6 @@ import androidx.work.WorkManager;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.net.URI;
 import java.util.concurrent.TimeUnit;
 
 final class WakeManager {
@@ -19,8 +18,7 @@ final class WakeManager {
     private WakeManager() {}
 
     static synchronized void configure(Context context, String apiUrl, String channelsJson) throws Exception {
-        URI uri = new URI(apiUrl == null ? "" : apiUrl);
-        if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null) throw new IllegalArgumentException("HTTPS required");
+        if (!SecureBridgeConfig.isAllowedApiUrl(apiUrl)) throw new IllegalArgumentException("API deployment mismatch");
         JSONArray incoming = new JSONArray(channelsJson == null ? "[]" : channelsJson);
         if (incoming.length() > 256) throw new IllegalArgumentException("too many channels");
 
@@ -46,8 +44,9 @@ final class WakeManager {
         }
 
         JSONObject state = new JSONObject();
-        state.put("v", 2);
-        state.put("apiUrl", apiUrl);
+        state.put("v", 3);
+        state.put("deploymentId", SecureBridgeConfig.deploymentId());
+        state.put("apiUrl", SecureBridgeConfig.apiUrl());
         state.put("channels", sanitized);
         state.put("cursor", sanitized.length() == 0 ? 0 : priorCursor % sanitized.length());
         if (!priorNotice.isEmpty()) state.put("lastNotifiedSlot", priorNotice);
