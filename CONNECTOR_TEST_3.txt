@@ -1,1 +1,0 @@
-SecureBridge connector write test after installing the GitHub App.
