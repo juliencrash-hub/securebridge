@@ -128,7 +128,7 @@ public class MainActivity extends Activity implements NfcAdapter.ReaderCallback 
         webView.setBackgroundColor(Color.rgb(17,19,21));
         setContentView(webView, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         WebSettings s = webView.getSettings();
-        s.setJavaScriptEnabled(true); s.setDomStorageEnabled(false); s.setAllowFileAccess(false); s.setAllowContentAccess(false); s.setDatabaseEnabled(false); s.setCacheMode(WebSettings.LOAD_NO_CACHE); s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW); s.setJavaScriptCanOpenWindowsAutomatically(false); s.setSupportMultipleWindows(false); s.setMediaPlaybackRequiresUserGesture(true); if (Build.VERSION.SDK_INT >= 26) s.setSafeBrowsingEnabled(true);
+        s.setJavaScriptEnabled(true); s.setDomStorageEnabled(false); s.setAllowFileAccess(false); s.setAllowContentAccess(false); s.setAllowFileAccessFromFileURLs(false); s.setAllowUniversalAccessFromFileURLs(false); s.setDatabaseEnabled(false); s.setGeolocationEnabled(false); s.setSaveFormData(false); s.setCacheMode(WebSettings.LOAD_NO_CACHE); s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW); s.setJavaScriptCanOpenWindowsAutomatically(false); s.setSupportMultipleWindows(false); s.setMediaPlaybackRequiresUserGesture(true); if (Build.VERSION.SDK_INT >= 26) s.setSafeBrowsingEnabled(true);
         CookieManager cm = CookieManager.getInstance(); cm.setAcceptCookie(false); if (Build.VERSION.SDK_INT >= 21) cm.setAcceptThirdPartyCookies(webView,false);
         webView.clearCache(true); webView.clearHistory(); WebView.setWebContentsDebuggingEnabled(false);
         webView.addJavascriptInterface(new BridgeApi(this, store), "SecureBridge");
@@ -228,7 +228,10 @@ public class MainActivity extends Activity implements NfcAdapter.ReaderCallback 
     }
 
     void configureBackgroundPolling(String apiUrl, String channelsJson) {
-        try { WakeManager.configure(this, apiUrl, channelsJson); } catch (Exception ignored) {}
+        try {
+            if (!SecureBridgeConfig.isAllowedApiUrl(apiUrl)) return;
+            WakeManager.configure(this, SecureBridgeConfig.apiUrl(), channelsJson);
+        } catch (Exception ignored) {}
     }
     void disableBackgroundPolling() { WakeManager.disable(this); }
 
