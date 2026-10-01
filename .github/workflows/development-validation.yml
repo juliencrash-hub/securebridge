@@ -1,0 +1,94 @@
+name: Validate development
+
+on:
+  push:
+    branches: [ "development" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure private deployment files are not committed
+        run: |
+          ! git ls-files --error-unmatch deployment.properties >/dev/null 2>&1
+          ! git ls-files --error-unmatch web/config.local.js >/dev/null 2>&1
+          ! git ls-files --error-unmatch server/config.local.php >/dev/null 2>&1
+
+      - name: Validate web JavaScript
+        run: node --check web/assets/app.js
+
+      - name: Lint PHP backend
+        run: |
+          php -l server/api.php
+          php -l server/admin.php
+          php -l server/config.php
+          php -l server/lib/stats.php
+
+      - name: Run static security tests
+        run: python tests/security_static.py
+
+      - name: Run protocol property tests
+        run: python tests/protocol_properties.py
+
+      - name: Backend PUT PEEK TAKE smoke test
+        run: |
+          cat > server/config.local.php <<'PHP'
+          <?php
+          return [
+            'deployment_id'=>'test-deployment-00000001',
+            'transport_ttl_seconds'=>604800,
+            'storage_dir'=>__DIR__.'/data',
+            'admin_username'=>'admin',
+            'admin_password_hash'=>'',
+          ];
+          PHP
+          php -S 127.0.0.1:8799 -t server >/tmp/securebridge-php.log 2>&1 &
+          PHP_PID=$!
+          trap 'kill "$PHP_PID" 2>/dev/null || true; rm -f server/config.local.php server/data/stats.json' EXIT
+          sleep 1
+          DEPLOYMENT_ID=test-deployment-00000001 python tests/backend_smoke.py
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android SDK 35
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Test and build generic locked Android APK
+        run: gradle --no-daemon testDebugUnitTest assembleDebug
+
+      - name: Hash development APK
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk SecureBridge-v0.5.1-alpha-development-debug.apk
+          sha256sum SecureBridge-v0.5.1-alpha-development-debug.apk | tee SecureBridge-v0.5.1-alpha-development-debug.apk.sha256
+
+      - name: Upload development APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SecureBridge-v0.5.1-alpha-development-debug-apk
+          path: |
+            SecureBridge-v0.5.1-alpha-development-debug.apk
+            SecureBridge-v0.5.1-alpha-development-debug.apk.sha256
+          if-no-files-found: error
