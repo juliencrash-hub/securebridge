@@ -2,7 +2,13 @@
 declare(strict_types=1);
 
 return [
-    'deployment_id' => 'replace-with-the-same-deployment-id',
+    'deployment_id' => 'replace-with-the-same-deployment-id-as-the-apk-and-web-client',
     'transport_ttl_seconds' => 604800,
-    'admin_password_hash' => getenv('SECUREBRIDGE_ADMIN_PASSWORD_HASH') ?: '',
+
+    // Idéalement hors de la racine web si l'hébergement le permet.
+    'storage_dir' => __DIR__ . '/data',
+
+    'admin_username' => 'admin',
+    // Générer avec password_hash(..., PASSWORD_ARGON2ID) ou PASSWORD_DEFAULT.
+    'admin_password_hash' => '',
 ];
