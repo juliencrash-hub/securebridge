@@ -73,3 +73,4 @@ jobs:
             SecureBridge-v0.5.1-alpha-debug.apk
             SecureBridge-v0.5.1-alpha-debug.apk.sha256
           if-no-files-found: error
+          retention-days: 7

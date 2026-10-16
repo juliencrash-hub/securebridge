@@ -1,0 +1,73 @@
+name: Clean old SecureBridge Android artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Preview only (disable to delete)"
+        type: boolean
+        required: true
+        default: true
+      older_than_days:
+        description: "Minimum age of artifacts eligible for removal"
+        type: choice
+        required: true
+        options:
+          - "7"
+          - "14"
+          - "30"
+        default: "7"
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: android-artifact-cleanup
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Preview or remove obsolete APK artifacts
+        uses: actions/github-script@v7
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          OLDER_THAN_DAYS: ${{ inputs.older_than_days }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const {owner, repo} = context.repo;
+            const dryRun = process.env.DRY_RUN !== 'false';
+            const days = Number(process.env.OLDER_THAN_DAYS);
+            if (![7, 14, 30].includes(days)) throw new Error('Invalid threshold');
+            const cutoff = Date.now() - days * 86400000;
+            const all = await github.paginate(github.rest.actions.listArtifactsForRepo, {
+              owner, repo, per_page: 100
+            });
+            const matched = all
+              .filter(a => /^SecureBridge-.*-debug-apk$/.test(a.name) && !a.expired)
+              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            // Always keep recent fallback APK artifacts even if older than cutoff.
+            const protectedIds = new Set();
+            for (const group of ['development', 'main']) {
+              const groupItems = matched.filter(a => a.name.includes('development') === (group === 'development'));
+              groupItems.slice(0, 2).forEach(a => protectedIds.add(a.id));
+            }
+            const obsolete = matched.filter(a =>
+              !protectedIds.has(a.id) && new Date(a.created_at).getTime() < cutoff
+            );
+            let bytes = 0;
+            for (const a of obsolete) {
+              bytes += a.size_in_bytes || 0;
+              core.info(`${dryRun ? '[DRY RUN]' : '[DELETE]'} ${a.id} ${a.name} ${a.size_in_bytes} bytes`);
+              if (!dryRun) await github.rest.actions.deleteArtifact({owner, repo, artifact_id: a.id});
+            }
+            await core.summary
+              .addHeading('SecureBridge Android artifact cleanup')
+              .addRaw(`Mode: ${dryRun ? 'preview' : 'delete'}; older than ${days} days.\n\n`)
+              .addRaw(`Candidates: ${obsolete.length}; ${(bytes / (1024 * 1024)).toFixed(1)} MiB.\n\n`)
+              .addRaw('Only SecureBridge APK artifacts are affected. Repository code and GitHub Packages are untouched.')
+              .write();
